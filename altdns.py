@@ -24,121 +24,117 @@ def get_alteration_words(wordlist_fname):
         return f.readlines()
 
 # will write to the file if the check returns true
-def write_domain(args, wp, full_url):
-  wp.write(full_url)
+def write_domain(args, full_url):
+  args.output.write(full_url)
 
 # function inserts words at every index of the subdomain
 def insert_all_indexes(args, alteration_words):
-    with open(args.input, "r") as fp:
-        with open(args.output_tmp, "a") as wp:
-            for line in fp:
-                ext = tldextract.extract(line.strip())
-                current_sub = ext.subdomain.split(".")
-                for word in alteration_words:
-                    for index in range(0, len(current_sub)):
-                        current_sub.insert(index, word.strip())
-                        # join the list to make into actual subdomain (aa.bb.cc)
-                        actual_sub = ".".join(current_sub)
-                        # save full URL as line in file
-                        full_url = "{0}.{1}.{2}\n".format(
-                            actual_sub, ext.domain, ext.suffix)
-                        if actual_sub[-1:] is not ".":
-                            write_domain(args, wp, full_url)
-                        current_sub.pop(index)
-                    current_sub.append(word.strip())
+    fp = args.input
+    for line in fp:
+            ext = tldextract.extract(line.strip())
+            current_sub = ext.subdomain.split(".")
+            for word in alteration_words:
+                for index in range(0, len(current_sub)):
+                    current_sub.insert(index, word.strip())
+                    # join the list to make into actual subdomain (aa.bb.cc)
                     actual_sub = ".".join(current_sub)
+                    # save full URL as line in file
                     full_url = "{0}.{1}.{2}\n".format(
                         actual_sub, ext.domain, ext.suffix)
-                    if len(current_sub[0]) > 0:
-                      write_domain(args, wp, full_url)
-                    current_sub.pop()
+                    if actual_sub[-1:] is not ".":
+                        write_domain(args, full_url)
+                    current_sub.pop(index)
+                current_sub.append(word.strip())
+                actual_sub = ".".join(current_sub)
+                full_url = "{0}.{1}.{2}\n".format(
+                    actual_sub, ext.domain, ext.suffix)
+                if len(current_sub[0]) > 0:
+                  write_domain(args, full_url)
+                current_sub.pop()
 
 # adds word-NUM and wordNUM to each subdomain at each unique position
 def insert_number_suffix_subdomains(args, alternation_words):
-    with open(args.input, "r") as fp:
-        with open(args.output_tmp, "a") as wp:
-            for line in fp:
-                ext = tldextract.extract(line.strip())
-                current_sub = ext.subdomain.split(".")
-                for word in range(0, 10):
-                    for index, value in enumerate(current_sub):
-                        #add word-NUM
-                        original_sub = current_sub[index]
-                        current_sub[index] = current_sub[index] + "-" + str(word)
-                        # join the list to make into actual subdomain (aa.bb.cc)
-                        actual_sub = ".".join(current_sub)
-                        # save full URL as line in file
-                        full_url = "{0}.{1}.{2}\n".format(actual_sub, ext.domain, ext.suffix)
-                        write_domain(args, wp, full_url)
-                        current_sub[index] = original_sub
+    fp = args.input
+    for line in fp:
+        ext = tldextract.extract(line.strip())
+        current_sub = ext.subdomain.split(".")
+        for word in range(0, 10):
+            for index, value in enumerate(current_sub):
+                #add word-NUM
+                original_sub = current_sub[index]
+                current_sub[index] = current_sub[index] + "-" + str(word)
+                # join the list to make into actual subdomain (aa.bb.cc)
+                actual_sub = ".".join(current_sub)
+                # save full URL as line in file
+                full_url = "{0}.{1}.{2}\n".format(actual_sub, ext.domain, ext.suffix)
+                write_domain(args, full_url)
+                current_sub[index] = original_sub
 
-                        #add wordNUM
-                        original_sub = current_sub[index]
-                        current_sub[index] = current_sub[index] + str(word)
-                        # join the list to make into actual subdomain (aa.bb.cc)
-                        actual_sub = ".".join(current_sub)
-                        # save full URL as line in file
-                        full_url = "{0}.{1}.{2}\n".format(actual_sub, ext.domain, ext.suffix)
-                        write_domain(args, wp, full_url)
-                        current_sub[index] = original_sub
+                #add wordNUM
+                original_sub = current_sub[index]
+                current_sub[index] = current_sub[index] + str(word)
+                # join the list to make into actual subdomain (aa.bb.cc)
+                actual_sub = ".".join(current_sub)
+                # save full URL as line in file
+                full_url = "{0}.{1}.{2}\n".format(actual_sub, ext.domain, ext.suffix)
+                write_domain(args, full_url)
+                current_sub[index] = original_sub
 
 # adds word- and -word to each subdomain at each unique position
 def insert_dash_subdomains(args, alteration_words):
-    with open(args.input, "r") as fp:
-        with open(args.output_tmp, "a") as wp:
-            for line in fp:
-                ext = tldextract.extract(line.strip())
-                current_sub = ext.subdomain.split(".")
-                for word in alteration_words:
-                    for index, value in enumerate(current_sub):
-                        original_sub = current_sub[index]
-                        current_sub[index] = current_sub[
-                            index] + "-" + word.strip()
-                        # join the list to make into actual subdomain (aa.bb.cc)
-                        actual_sub = ".".join(current_sub)
-                        # save full URL as line in file
-                        full_url = "{0}.{1}.{2}\n".format(
-                            actual_sub, ext.domain, ext.suffix)
-                        if len(current_sub[0]) > 0 and actual_sub[:1] is not "-":
-                            write_domain(args, wp, full_url)
-                        current_sub[index] = original_sub
-                        # second dash alteration
-                        current_sub[index] = word.strip() + "-" + \
-                            current_sub[index]
-                        actual_sub = ".".join(current_sub)
-                        # save second full URL as line in file
-                        full_url = "{0}.{1}.{2}\n".format(
-                            actual_sub, ext.domain, ext.suffix)
-                        if actual_sub[-1:] is not "-":
-                            write_domain(args, wp, full_url)
-                        current_sub[index] = original_sub
+    fp = args.input
+    for line in fp:
+        ext = tldextract.extract(line.strip())
+        current_sub = ext.subdomain.split(".")
+        for word in alteration_words:
+            for index, value in enumerate(current_sub):
+                original_sub = current_sub[index]
+                current_sub[index] = current_sub[
+                    index] + "-" + word.strip()
+                # join the list to make into actual subdomain (aa.bb.cc)
+                actual_sub = ".".join(current_sub)
+                # save full URL as line in file
+                full_url = "{0}.{1}.{2}\n".format(
+                    actual_sub, ext.domain, ext.suffix)
+                if len(current_sub[0]) > 0 and actual_sub[:1] is not "-":
+                    write_domain(args, full_url)
+                current_sub[index] = original_sub
+                # second dash alteration
+                current_sub[index] = word.strip() + "-" + \
+                    current_sub[index]
+                actual_sub = ".".join(current_sub)
+                # save second full URL as line in file
+                full_url = "{0}.{1}.{2}\n".format(
+                    actual_sub, ext.domain, ext.suffix)
+                if actual_sub[-1:] is not "-":
+                    write_domain(args, full_url)
+                current_sub[index] = original_sub
 
 # adds prefix and suffix word to each subdomain
 def join_words_subdomains(args, alteration_words):
-    with open(args.input, "r") as fp:
-        with open(args.output_tmp, "a") as wp:
-            for line in fp:
-                ext = tldextract.extract(line.strip())
-                current_sub = ext.subdomain.split(".")
-                for word in alteration_words:
-                    for index, value in enumerate(current_sub):
-                        original_sub = current_sub[index]
-                        current_sub[index] = current_sub[index] + word.strip()
-                        # join the list to make into actual subdomain (aa.bb.cc)
-                        actual_sub = ".".join(current_sub)
-                        # save full URL as line in file
-                        full_url = "{0}.{1}.{2}\n".format(
-                            actual_sub, ext.domain, ext.suffix)
-                        write_domain(args, wp, full_url)
-                        current_sub[index] = original_sub
-                        # second dash alteration
-                        current_sub[index] = word.strip() + current_sub[index]
-                        actual_sub = ".".join(current_sub)
-                        # save second full URL as line in file
-                        full_url = "{0}.{1}.{2}\n".format(
-                            actual_sub, ext.domain, ext.suffix)
-                        write_domain(args, wp, full_url)
-                        current_sub[index] = original_sub
+    fp = args.input
+    for line in fp:
+        ext = tldextract.extract(line.strip())
+        current_sub = ext.subdomain.split(".")
+        for word in alteration_words:
+            for index, value in enumerate(current_sub):
+                original_sub = current_sub[index]
+                current_sub[index] = current_sub[index] + word.strip()
+                # join the list to make into actual subdomain (aa.bb.cc)
+                actual_sub = ".".join(current_sub)
+                # save full URL as line in file
+                full_url = "{0}.{1}.{2}\n".format(
+                    actual_sub, ext.domain, ext.suffix)
+                write_domain(args, full_url)
+                current_sub[index] = original_sub
+                # second dash alteration
+                current_sub[index] = word.strip() + current_sub[index]
+                actual_sub = ".".join(current_sub)
+                # save second full URL as line in file
+                full_url = "{0}.{1}.{2}\n".format(
+                    actual_sub, ext.domain, ext.suffix)
+                write_domain(args, full_url)
+                current_sub[index] = original_sub
 
 
 def get_cname(q, target, resolved_out):
@@ -248,10 +244,9 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input",
-                        help="List of subdomains input", required=True)
+                        help="List of subdomains input", type=argparse.FileType('r'), default="-")
     parser.add_argument("-o", "--output",
-                        help="Output location for altered subdomains",
-                        required=True)
+                        help="Output location for altered subdomains", type=argparse.FileType('w'), default="-")
     parser.add_argument("-w", "--wordlist",
                         help="List of words to alter the subdomains with",
                         required=False, default="words.txt")
@@ -290,13 +285,14 @@ def main():
     alteration_words = get_alteration_words(args.wordlist)
 
     # if we should remove existing, save the output to a temporary file
-    if args.ignore_existing is True:
-      args.output_tmp = args.output + '.tmp'
-    else:
-      args.output_tmp = args.output
+    # if args.output != "-":
+    #     if args.ignore_existing is True:
+    #       args.output_tmp = args.output + '.tmp'
+    #     else:
+    #       args.output_tmp = args.output
 
-    # wipe the output before, so we fresh alternated data
-    open(args.output_tmp, 'w').close()
+    #     # wipe the output before, so we fresh alternated data
+    #     open(args.output_tmp, 'w').close()
 
     insert_all_indexes(args, alteration_words)
     insert_dash_subdomains(args, alteration_words)
@@ -306,11 +302,11 @@ def main():
 
     threadhandler = []
 
-    # Removes already existing + dupes from output
-    if args.ignore_existing is True:
-      remove_existing(args)
-    else:
-      remove_duplicates(args)
+    # # Removes already existing + dupes from output
+    # if args.ignore_existing is True:
+    #   remove_existing(args)
+    # else:
+    #   remove_duplicates(args)
 
     if args.resolve:
         global progress
