@@ -16,6 +16,7 @@ from termcolor import colored
 import dns.resolver
 import re
 import os
+from collections import OrderedDict
 
 logging.basicConfig(level=logging.CRITICAL)
 
@@ -23,14 +24,10 @@ def get_alteration_words(wordlist_fname):
     with open(wordlist_fname, "r") as f:
         return f.readlines()
 
-# will write to the file if the check returns true
-def write_domain(args, full_url):
-  args.output.write(full_url)
-
 # function inserts words at every index of the subdomain
-def insert_all_indexes(args, alteration_words):
-    fp = args.input
-    for line in fp:
+def insert_all_indexes(list_domains, alteration_words):
+    new_domains = []
+    for line in list_domains:
             ext = tldextract.extract(line.strip())
             current_sub = ext.subdomain.split(".")
             for word in alteration_words:
@@ -42,20 +39,21 @@ def insert_all_indexes(args, alteration_words):
                     full_url = "{0}.{1}.{2}\n".format(
                         actual_sub, ext.domain, ext.suffix)
                     if actual_sub[-1:] is not ".":
-                        write_domain(args, full_url)
+                        new_domains.append(full_url)
                     current_sub.pop(index)
                 current_sub.append(word.strip())
                 actual_sub = ".".join(current_sub)
                 full_url = "{0}.{1}.{2}\n".format(
                     actual_sub, ext.domain, ext.suffix)
                 if len(current_sub[0]) > 0:
-                  write_domain(args, full_url)
+                  new_domains.append(full_url)
                 current_sub.pop()
+    return new_domains
 
 # adds word-NUM and wordNUM to each subdomain at each unique position
-def insert_number_suffix_subdomains(args, alternation_words):
-    fp = args.input
-    for line in fp:
+def insert_number_suffix_subdomains(list_domains, alternation_words):
+    new_domains = []
+    for line in list_domains:
         ext = tldextract.extract(line.strip())
         current_sub = ext.subdomain.split(".")
         for word in range(0, 10):
@@ -67,7 +65,7 @@ def insert_number_suffix_subdomains(args, alternation_words):
                 actual_sub = ".".join(current_sub)
                 # save full URL as line in file
                 full_url = "{0}.{1}.{2}\n".format(actual_sub, ext.domain, ext.suffix)
-                write_domain(args, full_url)
+                new_domains.append(full_url)
                 current_sub[index] = original_sub
 
                 #add wordNUM
@@ -77,13 +75,14 @@ def insert_number_suffix_subdomains(args, alternation_words):
                 actual_sub = ".".join(current_sub)
                 # save full URL as line in file
                 full_url = "{0}.{1}.{2}\n".format(actual_sub, ext.domain, ext.suffix)
-                write_domain(args, full_url)
+                new_domains.append(full_url)
                 current_sub[index] = original_sub
+    return new_domains
 
 # adds word- and -word to each subdomain at each unique position
-def insert_dash_subdomains(args, alteration_words):
-    fp = args.input
-    for line in fp:
+def insert_dash_subdomains(list_domains, alteration_words):
+    new_domains = []
+    for line in list_domains:
         ext = tldextract.extract(line.strip())
         current_sub = ext.subdomain.split(".")
         for word in alteration_words:
@@ -97,7 +96,7 @@ def insert_dash_subdomains(args, alteration_words):
                 full_url = "{0}.{1}.{2}\n".format(
                     actual_sub, ext.domain, ext.suffix)
                 if len(current_sub[0]) > 0 and actual_sub[:1] is not "-":
-                    write_domain(args, full_url)
+                    new_domains.append(full_url)
                 current_sub[index] = original_sub
                 # second dash alteration
                 current_sub[index] = word.strip() + "-" + \
@@ -107,13 +106,14 @@ def insert_dash_subdomains(args, alteration_words):
                 full_url = "{0}.{1}.{2}\n".format(
                     actual_sub, ext.domain, ext.suffix)
                 if actual_sub[-1:] is not "-":
-                    write_domain(args, full_url)
+                    new_domains.append(full_url)
                 current_sub[index] = original_sub
+    return new_domains
 
 # adds prefix and suffix word to each subdomain
-def join_words_subdomains(args, alteration_words):
-    fp = args.input
-    for line in fp:
+def join_words_subdomains(list_domains, alteration_words):
+    new_domains = []
+    for line in list_domains:
         ext = tldextract.extract(line.strip())
         current_sub = ext.subdomain.split(".")
         for word in alteration_words:
@@ -125,7 +125,7 @@ def join_words_subdomains(args, alteration_words):
                 # save full URL as line in file
                 full_url = "{0}.{1}.{2}\n".format(
                     actual_sub, ext.domain, ext.suffix)
-                write_domain(args, full_url)
+                new_domains.append(full_url)
                 current_sub[index] = original_sub
                 # second dash alteration
                 current_sub[index] = word.strip() + current_sub[index]
@@ -133,8 +133,9 @@ def join_words_subdomains(args, alteration_words):
                 # save second full URL as line in file
                 full_url = "{0}.{1}.{2}\n".format(
                     actual_sub, ext.domain, ext.suffix)
-                write_domain(args, full_url)
+                new_domains.append(full_url)
                 current_sub[index] = original_sub
+    return new_domains
 
 
 def get_cname(q, target, resolved_out):
@@ -216,28 +217,19 @@ def get_cname(q, target, resolved_out):
                     "blue"))
     q.put(result)
 
-def remove_duplicates(args):
-  with open(args.output) as b:
-    blines = set(b)
-    with open(args.output, 'w') as result:
-      for line in blines:
-        result.write(line)
+def remove_duplicates(list_domains):
+    return list(OrderedDict.fromkeys(list_domains))
 
-def remove_existing(args):
-  with open(args.input) as b:
-    blines = set(b)
-  with open(args.output_tmp) as a:
-    with open(args.output, 'w') as result:
-      for line in a:
-        if line not in blines:
-          result.write(line)
-  os.remove(args.output_tmp)
+def remove_existing(altered_domains, existing_domains):
+    return [x for x in altered_domains if x not in existing_domains]
 
-def get_line_count(filename):
-    with open(filename, "r") as lc:
-        linecount = sum(1 for _ in lc)
-    return linecount
+def read_list_domains(filename):
+    domains = filename.readlines()
+    return domains
 
+def write_list_domains(filename,domains):
+    for d in domains:
+        filename.write(d)
 
 def main():
     q = Queue()
@@ -246,7 +238,7 @@ def main():
     parser.add_argument("-i", "--input",
                         help="List of subdomains input", type=argparse.FileType('r'), default="-")
     parser.add_argument("-o", "--output",
-                        help="Output location for altered subdomains", type=argparse.FileType('w'), default="-")
+                        help="Output location for altered subdomains", type=argparse.FileType('wb'), default="-")
     parser.add_argument("-w", "--wordlist",
                         help="List of words to alter the subdomains with",
                         required=False, default="words.txt")
@@ -266,39 +258,35 @@ def main():
         "-s",
         "--save",
         help="File to save resolved altered subdomains to",
-        required=False)
+        required=False, type=argparse.FileType('a'))
 
     parser.add_argument("-t", "--threads",
                     help="Amount of threads to run simultaneously",
                     required=False, default="0")
 
     args = parser.parse_args()
-
     if args.resolve:
-        try:
-            resolved_out = open(args.save, "a")
-        except:
+        if not args.save:
             print("Please provide a file name to save results to "
                   "via the -s argument")
             raise SystemExit
 
+        resolved_out = args.save
+
     alteration_words = get_alteration_words(args.wordlist)
+    altered_domains = []
 
-    # if we should remove existing, save the output to a temporary file
-    # if args.output != "-":
-    #     if args.ignore_existing is True:
-    #       args.output_tmp = args.output + '.tmp'
-    #     else:
-    #       args.output_tmp = args.output
-
-    #     # wipe the output before, so we fresh alternated data
-    #     open(args.output_tmp, 'w').close()
-
-    insert_all_indexes(args, alteration_words)
-    insert_dash_subdomains(args, alteration_words)
+    list_domains = read_list_domains(args.input)
+    altered_domains += insert_all_indexes(list_domains, alteration_words)
+    altered_domains += insert_dash_subdomains(list_domains, alteration_words)
     if args.add_number_suffix is True:
-      insert_number_suffix_subdomains(args, alteration_words)
-    join_words_subdomains(args, alteration_words)
+      altered_domains += insert_number_suffix_subdomains(list_domains, alteration_words)
+    altered_domains += join_words_subdomains(list_domains, alteration_words)
+
+    remove_duplicates(altered_domains)
+    if args.ignore_existing:
+        remove_existing(altered_domains, list_domains)
+    write_list_domains(args.output, altered_domains)
 
     threadhandler = []
 
@@ -319,27 +307,27 @@ def main():
         found = {}
         progress = 0
         starttime = int(time.time())
-        linecount = get_line_count(args.output)
+        linecount = len(altered_domains)
         resolverName = args.dnsserver
-        with open(args.output, "r") as fp:
-            for i in fp:
-                if args.threads:
-                    if len(threadhandler) > int(args.threads):
-                        #Wait until there's only 10 active threads
-                        while len(threadhandler) > 10:
-                           threadhandler.pop().join()
-                try:
-                    t = threading.Thread(
-                        target=get_cname, args=(
-                            q, i.strip(), resolved_out))
-                    t.daemon = True
-                    threadhandler.append(t)
-                    t.start()
-                except Exception as error:
-                    print("error:"),(error)
-            #Wait for threads
-            while len(threadhandler) > 0:
-               threadhandler.pop().join()
+
+        for i in altered_domains:
+            if args.threads:
+                if len(threadhandler) > int(args.threads):
+                    #Wait until there's only 10 active threads
+                    while len(threadhandler) > 10:
+                       threadhandler.pop().join()
+            try:
+                t = threading.Thread(
+                    target=get_cname, args=(
+                        q, i.strip(), resolved_out))
+                t.daemon = True
+                threadhandler.append(t)
+                t.start()
+            except Exception as error:
+                print("error:"),(error)
+        #Wait for threads
+        while len(threadhandler) > 0:
+           threadhandler.pop().join()
                
         timetaken = str(datetime.timedelta(seconds=(int(time.time())-starttime)))
         print(
